@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Spider-Sense AI</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🕷 SPIDER-SENSE AI</h1>
+
+    <h3>
+        Adversarially Robust Digit Recognition
+    </h3>
+
+    <canvas
+        id="canvas"
+        width="280"
+        height="280">
+    </canvas>
+
+    <br><br>
+
+    <button onclick="clearCanvas()">
+        Clear
+    </button>
+
+    <button>
+        Predict
+    </button>
+
+    <div id="result">
+
+        Prediction : -
+
+    </div>
+
+</div>
+
+<script src="{{ url_for('static',
+filename='script.js') }}">
+</script>
+
+</body>
+
+</html>
