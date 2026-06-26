@@ -1,41 +1,433 @@
-body {
+/* =======================================================
+   WEBWEAVE DESIGN SYSTEM v1
+   Spider-Sense AI
+   ======================================================= */
 
-    background: #0f0f0f;
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-    color: white;
+:root{
 
-    text-align: center;
+    /* ===== COLORS ===== */
 
-    font-family: Arial;
+    --bg:#0A0F1F;
+    --surface:#141B2D;
+    --surface-light:#1A233A;
+
+    --primary:#3AA6FF;
+    --primary-dark:#2477CC;
+
+    --danger:#E74C3C;
+    --warning:#F1C40F;
+    --success:#2ECC71;
+
+    --text:#ECF0F3;
+    --text-secondary:#9CA8C3;
+
+    --border:rgba(255,255,255,.08);
+
+    --glass:rgba(255,255,255,.06);
+
+    /* ===== EFFECTS ===== */
+
+    --blur:18px;
+
+    --radius:18px;
+
+    --shadow:
+        0 10px 35px rgba(0,0,0,.45);
+
+    --transition:.30s ease;
+
+}
+/* =======================================================
+   GLOBAL RESET
+   ======================================================= */
+
+*{
+
+    margin:0;
+
+    padding:0;
+
+    box-sizing:border-box;
+
 }
 
-canvas {
+body{
 
-    background: white;
+    background:
+    radial-gradient(circle at top,#172442 0%,#0A0F1F 60%);
 
-    border: 5px solid red;
+    color:var(--text);
 
-    cursor: crosshair;
+    font-family:"Inter",sans-serif;
+
+    min-height:100vh;
+
+    padding:40px;
+
+}
+/* =======================================================
+   TYPOGRAPHY
+   ======================================================= */
+
+h1{
+
+    font-family:"Orbitron",sans-serif;
+
+    font-size:3rem;
+
+    letter-spacing:2px;
+
 }
 
-button {
+h2{
 
-    margin: 10px;
+    font-family:"Orbitron",sans-serif;
 
-    padding: 12px 20px;
+    font-size:1.4rem;
 
-    font-size: 16px;
-
-    border: none;
-
-    border-radius: 8px;
-
-    background: #d40000;
-
-    color: white;
 }
 
-button:hover {
+h3{
 
-    background: #ff2222;
+    font-size:.95rem;
+
+    color:var(--text-secondary);
+
+    font-weight:600;
+
+}
+
+p{
+
+    color:var(--text-secondary);
+
+}
+/* =======================================================
+   DASHBOARD
+   ======================================================= */
+
+.dashboard{
+
+    width:min(1500px,95vw);
+
+    margin:auto;
+
+}
+/* =======================================================
+   HEADER
+   ======================================================= */
+
+.header{
+
+    margin-bottom:40px;
+
+}
+
+.header h1{
+
+    margin-bottom:10px;
+
+}
+
+.header p{
+
+    font-size:1.1rem;
+
+}
+/* =======================================================
+   STATUS BAR
+   ======================================================= */
+
+.status-bar{
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(4,1fr);
+
+    gap:20px;
+
+    margin-bottom:35px;
+
+}
+.status-card{
+
+    background:
+    var(--glass);
+
+    backdrop-filter:
+    blur(var(--blur));
+
+    border:
+    1px solid var(--border);
+
+    border-radius:
+    var(--radius);
+
+    padding:22px;
+
+    box-shadow:
+    var(--shadow);
+
+    transition:
+    var(--transition);
+
+}
+.status-card:hover{
+
+    transform:
+    translateY(-5px);
+
+}
+.status-card span{
+
+    display:block;
+
+    margin-top:12px;
+
+    font-size:1.8rem;
+
+    font-weight:700;
+
+}
+/* =======================================================
+   MAIN GRID
+   ======================================================= */
+
+.main-grid{
+
+    display:grid;
+
+    grid-template-columns:
+    1fr 1fr;
+
+    gap:25px;
+
+    margin-top:20px;
+
+}
+/* =======================================================
+   WEBWEAVE PANEL
+   ======================================================= */
+
+.canvas-panel,
+.report-panel{
+
+    background:
+    var(--glass);
+
+    backdrop-filter:
+    blur(var(--blur));
+
+    border:
+    1px solid var(--border);
+
+    border-radius:
+    var(--radius);
+
+    box-shadow:
+    var(--shadow);
+
+    padding:25px;
+
+    min-height:420px;
+
+    transition:
+    var(--transition);
+
+}
+.canvas-panel:hover,
+.report-panel:hover{
+
+    transform:
+    translateY(-5px);
+
+}
+.canvas-panel h2,
+.report-panel h2{
+
+    margin-bottom:25px;
+
+}
+.canvas-panel{
+
+    display:flex;
+
+    flex-direction:column;
+
+}
+#canvas{
+
+    margin:auto;
+
+    border-radius:12px;
+
+    cursor:crosshair;
+
+}
+/* =======================================================
+   PROJECT ARCHIVE
+   ======================================================= */
+
+.archive-panel{
+
+    background:var(--glass);
+
+    backdrop-filter:blur(var(--blur));
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    box-shadow:var(--shadow);
+
+    margin-top:25px;
+
+    padding:25px;
+
+}
+.archive-panel h2{
+
+    margin-bottom:25px;
+
+}
+#missionLog{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+
+}
+.log-entry{
+
+    display:flex;
+
+    gap:18px;
+
+    align-items:flex-start;
+
+    padding-bottom:18px;
+
+    border-bottom:1px solid rgba(255,255,255,.06);
+
+}
+.log-time{
+
+    font-family:"Orbitron";
+
+    color:var(--primary);
+
+    min-width:70px;
+
+}
+.log-message{
+
+    color:var(--text-secondary);
+
+    line-height:1.6;
+
+}
+/* =======================================================
+   PROJECT COMMAND
+   ======================================================= */
+
+.command-panel{
+
+    background:var(--glass);
+
+    backdrop-filter:blur(var(--blur));
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    box-shadow:var(--shadow);
+
+    margin-top:25px;
+
+    padding:25px;
+
+}
+.command-panel h2{
+
+    margin-bottom:25px;
+
+}
+.command-grid{
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(4,1fr);
+
+    gap:20px;
+
+}
+.command-btn{
+
+    background:var(--surface-light);
+
+    color:var(--text);
+
+    border:1px solid var(--border);
+
+    border-radius:14px;
+
+    padding:18px;
+
+    cursor:pointer;
+
+    font-family:"Inter",sans-serif;
+
+    font-size:1rem;
+
+    font-weight:600;
+
+    transition:var(--transition);
+
+}
+.command-btn:hover{
+
+    transform:translateY(-3px);
+
+}
+.primary{
+
+    border-color:
+    rgba(58,166,255,.35);
+
+}
+.danger{
+
+    border-color:
+    rgba(231,76,60,.35);
+
+}
+.secondary{
+
+    border-color:
+    rgba(255,255,255,.10);
+
+}
+.disabled{
+
+    opacity:.55;
+
+    cursor:not-allowed;
+
+}
+.command-btn span{
+
+    display:block;
+
+    margin-top:8px;
+
+    font-size:.8rem;
+
+    color:var(--text-secondary);
+
 }

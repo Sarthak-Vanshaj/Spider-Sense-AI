@@ -12,45 +12,180 @@
 
 <body>
 
-<div class="container">
+    <div class="dashboard">
 
-    <h1>🕷 SPIDER-SENSE AI</h1>
+        <!-- ================= HEADER ================= -->
 
-    <h3>
-        Adversarially Robust Digit Recognition
-    </h3>
+        <header class="header">
 
-    <canvas
-        id="canvas"
-        width="280"
-        height="280">
-    </canvas>
+            <h1>🕷 SPIDER-SENSE AI</h1>
 
-    <br><br>
+            <p>
+                Neural Threat Intelligence Console
+            </p>
 
-    <button onclick="clearCanvas()">
-        Clear
-    </button>
+        </header>
 
-    <button onclick="predictDigit()">
-    Predict
-    </button>
-    <button onclick="attackDigit()">
-    🟢 Green Goblin Attack
-    </button>
+        <!-- ================= STATUS ================= -->
 
-    <div id="result">
+        <section class="status-bar">
 
-        Prediction : -
+            <div class="status-card" id="threat-card">
+
+                <h3>Threat Level</h3>
+
+                <span id="threatLevel">
+                    🟢 Low
+                </span>
+
+            </div>
+
+            <div class="status-card">
+
+                <h3>Threat Score</h3>
+
+                <span id="threatScore">
+                    0%
+                </span>
+
+            </div>
+
+            <div class="status-card">
+
+                <h3>Web Shield</h3>
+
+                <span id="shieldStatus">
+                    STANDBY
+                </span>
+
+            </div>
+
+            <div class="status-card">
+
+                <h3>Current Villain</h3>
+
+                <span id="currentAttack">
+                    None
+                </span>
+
+            </div>
+
+        </section>
+
+        <!-- ================= MAIN GRID ================= -->
+
+        <main class="main-grid">
+
+            <!-- Canvas -->
+
+            <section class="canvas-panel">
+
+                <h2>Neural Scanner</h2>
+
+                <canvas
+                    id="canvas"
+                    width="280"
+                    height="280">
+                </canvas>
+
+            </section>
+
+            <!-- Report -->
+
+            <section class="report-panel">
+
+                <h2>Threat Intelligence</h2>
+
+                <div id="result">
+
+                    Standing by for incoming telemetry...
+
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- ================= PROJECT ARCHIVE ================= -->
+
+        <section class="archive-panel">
+
+            <h2>Operation Archive</h2>
+
+            <div id="missionLog">
+
+                <div class="log-entry">
+
+                    <span class="log-time">
+
+                        --:--
+
+                    </span>
+
+                    <div class="log-message">
+
+                        System initialized.
+
+                        Awaiting first operation.
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ================= PROJECT COMMAND ================= -->
+
+        <section class="command-panel">
+
+            <h2>Mission Command</h2>
+
+            <div class="command-grid">
+
+                <button
+                    id="scanButton"
+                    class="command-btn primary"
+                    onclick="predictDigit()">
+
+                    🕷 Scan Threat
+
+             </button>
+
+             <button
+                    id="attackButton"
+                    class="command-btn danger"
+                    onclick="attackDigit()">
+
+                    👺 Launch Goblin Attack
+
+                </button>
+
+                <button
+                    id="shieldButton"
+                    class="command-btn disabled"
+                    disabled>
+
+                    🛡 Web Shield
+
+                    <span>Coming Online</span>
+
+                </button>
+
+                <button
+                    id="clearButton"
+                    class="command-btn secondary"
+                    onclick="clearCanvas()">
+
+                    🧹 Reset Scanner
+
+                </button>
+
+            </div>
+
+        </section>
 
     </div>
-
-</div>
-
-<script src="{{ url_for('static',
-filename='script.js') }}">
-</script>
-
 </body>
-
 </html>
