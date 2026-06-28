@@ -87,14 +87,53 @@
                     width="280"
                     height="280">
                 </canvas>
+                <div class="scanner-hud">
+
+                    <div class="hud-row">
+                        <span>Ink Coverage</span>
+                        <span id="inkCoverage">0%</span>
+                    </div>
+
+                    <div class="hud-row">
+                        <span>Input Status</span>
+                        <span id="inputStatus">EMPTY</span>
+                    </div>
+
+                    <div class="hud-row">
+                        <span>Neural Link</span>
+                        <span id="neuralLink">READY</span>
+                    </div>
+
+                    <div class="hud-row">
+                        <span>Observation Quality</span>
+                        <span id="observationQuality">--</span>
+                    </div>
+                    <div class="hud-row">
+
+                        <span>Analysis Ready</span>
+
+                        <span id="analysisReady">
+
+                            NO
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <p id="scannerHint">
+                    🕷 Draw a digit to begin neural analysis.
+                </p>
 
             </section>
+            
 
             <!-- Report -->
 
             <section class="report-panel">
 
-                <h2>Threat Intelligence</h2>
+                <h2 class="report-title">Threat Intelligence</h2>
 
                 <div id="result">
 
@@ -147,7 +186,7 @@
                 <button
                     id="scanButton"
                     class="command-btn primary"
-                    onclick="predictDigit()">
+                    onclick="scanThreat()">
 
                     🕷 Scan Threat
 
@@ -187,5 +226,8 @@
         </section>
 
     </div>
+    <script
+    src="{{ url_for('static', filename='script.js') }}">
+    </script>
 </body>
 </html>
