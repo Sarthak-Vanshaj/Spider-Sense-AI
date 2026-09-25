@@ -24,10 +24,16 @@ canvas.addEventListener(
     "mousedown",
     () => {
 
+        console.log("Mouse Down");
+
         drawing = true;
 
         inputStatus.textContent =
         "CAPTURING";
+
+        logEvent(
+            "Neural Scanner: input capture initiated."
+        );
 
     }
 );
@@ -44,6 +50,10 @@ canvas.addEventListener(
         "READY";
 
         updateInkCoverage();
+
+        logEvent(
+    "Neural Scanner: observation captured."
+);
 
     }
 );
@@ -78,6 +88,52 @@ function draw(event)
         event.clientX - rect.left,
         event.clientY - rect.top
     );
+}
+
+function logEvent(message)
+{
+    const missionLog =
+    document.getElementById("missionLog");
+
+    const entry =
+    document.createElement("div");
+
+    entry.className =
+    "log-entry";
+
+    const time =
+    document.createElement("span");
+
+    time.className =
+    "log-time";
+
+    const now =
+    new Date();
+
+    time.textContent =
+    now.toLocaleTimeString(
+        [],
+        {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        }
+    );
+
+    const logMessage =
+    document.createElement("div");
+
+    logMessage.className =
+    "log-message";
+
+    logMessage.textContent =
+    message;
+
+    entry.appendChild(time);
+
+    entry.appendChild(logMessage);
+
+    missionLog.prepend(entry);
 }
 
 function clearCanvas()
@@ -243,8 +299,80 @@ function scanThreat()
 
 }
 
+function generateOracleVerdict(result)
+{
+    const quality =
+        document.getElementById(
+            "observationQuality"
+        ).textContent;
+
+    const coverageText =
+        document.getElementById(
+            "inkCoverage"
+        ).textContent;
+
+    const coverage =
+        parseFloat(
+            coverageText.replace("%", "")
+        );
+
+    const confidence =
+        parseFloat(result.confidence);
+
+    if (
+        confidence >= 90 &&
+        quality === "EXCELLENT"
+    )
+    {
+        return {
+            verdict:
+                "Classification confidence is strong. Input appears structurally consistent.",
+
+            recommendation:
+                "Continue monitoring."
+        };
+    }
+
+    if (
+        confidence >= 75 &&
+        quality !== "POOR"
+    )
+    {
+        return {
+            verdict:
+                "Classification confidence is stable. Input quality is sufficient for analysis.",
+
+            recommendation:
+                "Continue monitoring."
+        };
+    }
+
+    if (
+        confidence >= 50
+    )
+    {
+        return {
+            verdict:
+                "Classification confidence is moderate. Input characteristics may affect model certainty.",
+
+            recommendation:
+                "Consider a clearer input for improved analysis."
+        };
+    }
+
+    return {
+        verdict:
+            "Low-confidence classification detected. Neural analysis may be unreliable.",
+
+        recommendation:
+            "Re-scan with a clearer input."
+    };
+}
+
 function generateThreatReport(result)
 {
+    const oracle =
+    generateOracleVerdict(result);
 
     document.getElementById(
     "result"
@@ -292,29 +420,61 @@ function generateThreatReport(result)
     <h3>Oracle Verdict</h3>
 
     <p>
-
-    Classification confidence remains stable.
-
-    No adversarial indicators detected.
-
+        ${oracle.verdict}
     </p>
 
     <strong>
-
-    Recommendation
-
+        Recommendation
     </strong>
 
     <p>
-
-    Continue monitoring.
-
+        ${oracle.recommendation}
     </p>
 
 </div>
 
 `;
+addLog(
+    `Oracle: Digit ${result.digit} classified at ${result.confidence}% confidence.`
+);
 
+addLog(
+    `Oracle assessment: ${oracle.verdict}`
+);
+
+addLog(
+    `Oracle recommendation: ${oracle.recommendation}`
+);
+
+}
+
+function addLog(message)
+{
+    const missionLog =
+        document.getElementById("missionLog");
+
+    const entry =
+        document.createElement("div");
+
+    entry.className =
+        "log-entry";
+
+    const time =
+        new Date().toLocaleTimeString();
+
+    entry.innerHTML =
+
+    `
+        <span class="log-time">
+            ${time}
+        </span>
+
+        <div class="log-message">
+            ${message}
+        </div>
+    `;
+
+    missionLog.prepend(entry);
 }
 
 async function predictDigit()
@@ -452,3 +612,5 @@ async function attackDigit()
     }
     `;
 }
+
+logEvent("Operation Archive online.");
