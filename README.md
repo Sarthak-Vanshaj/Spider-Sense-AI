@@ -24,6 +24,10 @@ Spider-Sense AI is a Flask + TensorFlow web application built around the **WebWe
 - **Web Shield Defense Engine (Active Toggle)**
   - Implements **Feature Squeezing** (background perturbation haze suppression + `3×3` median spatial smoothing) and **L1 Probability Divergence** anomaly detection.
   - Compares unshielded vs. sanitized predictions live in Oracle and Operation Archive, neutralizing or quarantining FGSM attacks.
+- **WebWeave Acrylic HUD (UI/UX)**
+  - Dual-tone `#A15555` × `#59629E` atmospheric backdrop with geometric web lattice and tactile acrylic micro-grain overlay.
+  - See-through frosted acrylic panels (`backdrop-filter: blur(16px)`), monochrome vector HUD icons, scanner corner reticle with sweep animation, confidence meter bars, and color-coded `Operation Archive` subsystem tags.
+  - Custom icon specifications documented in [docs/ICON_DESIGN_GUIDE.md](docs/ICON_DESIGN_GUIDE.md).
 - **Project Archive (Operation Archive)**
   - Timestamped live event log capturing scanner events, classifications, verdicts, and attack outcomes.
 - **Security Hardening**
@@ -43,8 +47,11 @@ Spider-Sense AI/
 │   └── index.html             # WebWeave v1 Threat Intelligence Console
 ├── static/
 │   ├── script.js              # Canvas capture, HUD telemetry, Pulse sync, Oracle & Archive
-│   ├── style.css              # WebWeave v1 glassmorphic dark UI
-│   └── images/                # Static visual assets directory
+│   ├── style.css              # WebWeave acrylic HUD (#A15555 x #59629E)
+│   └── images/
+│       └── icons/             # Drop-in directory for custom SVG HUD icons
+├── docs/
+│   └── ICON_DESIGN_GUIDE.md   # Specifications & checklist for custom icon design
 ├── uploads/                   # Reserved for future image-upload defense workflows
 └── tests/
     └── test_app.py            # Automated Flask, security header, validation & FGSM tests

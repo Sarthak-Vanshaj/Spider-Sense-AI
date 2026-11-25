@@ -1,4 +1,6 @@
 const canvas = document.getElementById("canvas");
+const canvasFrame = document.getElementById("canvasFrame");
+const scanSweepEl = document.getElementById("scanSweep");
 const ctx = canvas.getContext("2d");
 
 const inputStatus = document.getElementById("inputStatus");
@@ -19,6 +21,7 @@ const resultEl = document.getElementById("result");
 const scanButton = document.getElementById("scanButton");
 const attackButton = document.getElementById("attackButton");
 const shieldButton = document.getElementById("shieldButton");
+const shieldPillEl = document.getElementById("shieldPill");
 const shieldButtonSubEl = document.getElementById("shieldButtonSub");
 const epsilonSlider = document.getElementById("epsilonSlider");
 const epsilonValueEl = document.getElementById("epsilonValue");
@@ -36,6 +39,13 @@ function resetCanvasSurface() {
 
 resetCanvasSurface();
 
+function triggerScanSweep() {
+    if (!scanSweepEl) return;
+    scanSweepEl.classList.remove("sweeping");
+    void scanSweepEl.offsetWidth;
+    scanSweepEl.classList.add("sweeping");
+}
+
 function getCanvasPoint(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -49,8 +59,9 @@ function getCanvasPoint(clientX, clientY) {
 function startDrawing(clientX, clientY) {
     drawing = true;
     hasMovedSinceStart = false;
+    if (canvasFrame) canvasFrame.classList.add("is-capturing");
     inputStatus.textContent = "CAPTURING";
-    scannerHintEl.textContent = "🕷 Capturing neural stroke...";
+    scannerHintEl.textContent = "Capturing neural stroke...";
 
     const pt = getCanvasPoint(clientX, clientY);
     ctx.beginPath();
@@ -77,6 +88,7 @@ function drawAt(clientX, clientY) {
 function stopDrawing() {
     if (!drawing) return;
     drawing = false;
+    if (canvasFrame) canvasFrame.classList.remove("is-capturing");
     ctx.beginPath();
     inputStatus.textContent = "READY";
     updateInkCoverage();
@@ -134,15 +146,28 @@ function toggleWebShield() {
         shieldStatusEl.textContent = "ACTIVE";
         shieldCardEl.classList.add("pulse-shield");
         shieldButton.classList.add("shield-armed");
+        if (shieldPillEl) shieldPillEl.textContent = "ON";
         shieldButtonSubEl.textContent = "ACTIVE — Feature Squeezing ON";
         logEvent("Web Shield ARMED: feature squeezing & anomaly detection online.");
     } else {
         shieldStatusEl.textContent = "STANDBY";
         shieldCardEl.classList.remove("pulse-shield");
         shieldButton.classList.remove("shield-armed");
+        if (shieldPillEl) shieldPillEl.textContent = "OFF";
         shieldButtonSubEl.textContent = "STANDBY — Click to Arm";
         logEvent("Web Shield DISARMED: returned to standby.");
     }
+}
+
+function classifyLogSubsystem(message) {
+    const text = String(message);
+    if (text.startsWith("Web Shield")) return { label: "SHIELD", cls: "badge-shield" };
+    if (text.startsWith("Goblin")) return { label: "GOBLIN", cls: "badge-goblin" };
+    if (text.startsWith("Oracle")) return { label: "ORACLE", cls: "badge-oracle" };
+    if (text.startsWith("Neural Scanner") || text.startsWith("Scanner")) {
+        return { label: "SCANNER", cls: "badge-system" };
+    }
+    return { label: "SYSTEM", cls: "badge-system" };
 }
 
 function logEvent(message) {
@@ -158,12 +183,16 @@ function logEvent(message) {
         second: "2-digit",
     });
 
+    const subsystem = classifyLogSubsystem(message);
+    const badge = document.createElement("span");
+    badge.className = `log-badge ${subsystem.cls}`;
+    badge.textContent = subsystem.label;
+
     const logMessage = document.createElement("div");
     logMessage.className = "log-message";
     logMessage.textContent = String(message);
 
-    entry.appendChild(time);
-    entry.appendChild(logMessage);
+    entry.append(time, badge, logMessage);
     missionLog.prepend(entry);
 }
 
@@ -189,6 +218,13 @@ function setPulseState(levelText, scorePercent, villainName, severity) {
     }
 }
 
+function setButtonLabel(buttonEl, text) {
+    const labelEl = buttonEl.querySelector(".btn-label");
+    if (labelEl) {
+        labelEl.textContent = text;
+    }
+}
+
 function setBusyState(busy, activeMode) {
     isBusy = busy;
     scanButton.disabled = busy;
@@ -197,13 +233,15 @@ function setBusyState(busy, activeMode) {
 
     if (busy) {
         neuralLinkEl.textContent = "TRANSMITTING";
-        scanButton.textContent = activeMode === "scan" ? "🕷 Scanning..." : "🕷 Scan Threat";
-        attackButton.textContent =
-            activeMode === "attack" ? "👺 Launching Attack..." : "👺 Launch Goblin Attack";
+        setButtonLabel(scanButton, activeMode === "scan" ? "Scanning..." : "Scan Threat");
+        setButtonLabel(
+            attackButton,
+            activeMode === "attack" ? "Attacking..." : "Launch Goblin Attack"
+        );
     } else {
         neuralLinkEl.textContent = "READY";
-        scanButton.textContent = "🕷 Scan Threat";
-        attackButton.textContent = "👺 Launch Goblin Attack";
+        setButtonLabel(scanButton, "Scan Threat");
+        setButtonLabel(attackButton, "Launch Goblin Attack");
     }
 }
 
@@ -213,10 +251,10 @@ function clearCanvas() {
     inkCoverageEl.textContent = "0%";
     observationQualityEl.textContent = "--";
     analysisReadyEl.textContent = "NO";
-    scannerHintEl.textContent = "🕷 Draw a digit to begin neural analysis.";
+    scannerHintEl.textContent = "Draw a digit inside the reticle to begin neural analysis.";
 
     resultEl.textContent = "Standing by for incoming telemetry...";
-    setPulseState("🟢 Low", 0, "None", null);
+    setPulseState("LOW — NOMINAL", 0, "None", "safe");
     logEvent("Neural Scanner: canvas reset and telemetry cleared.");
 }
 
@@ -239,30 +277,30 @@ function updateInkCoverage() {
     if (coverage < 1) {
         observationQualityEl.textContent = "NO INPUT";
         analysisReadyEl.textContent = "NO";
-        scannerHintEl.textContent = "🕷 Draw a digit to begin neural analysis.";
+        scannerHintEl.textContent = "Draw a digit inside the reticle to begin neural analysis.";
     } else if (coverage < 3) {
         observationQualityEl.textContent = "POOR";
         analysisReadyEl.textContent = "NO";
-        scannerHintEl.textContent = "⚠ Input too faint — draw a clearer, thicker digit.";
+        scannerHintEl.textContent = "Input too faint — draw a clearer, thicker stroke.";
     } else if (coverage < 6) {
         observationQualityEl.textContent = "FAIR";
         analysisReadyEl.textContent = "READY";
-        scannerHintEl.textContent = "✅ Input ready for Spider-Sense scan or Goblin attack.";
+        scannerHintEl.textContent = "Input ready for Spider-Sense scan or Goblin simulation.";
     } else if (coverage < 10) {
         observationQualityEl.textContent = "GOOD";
         analysisReadyEl.textContent = "READY";
-        scannerHintEl.textContent = "✅ Strong input captured. Ready for analysis.";
+        scannerHintEl.textContent = "Strong input captured. Ready for neural analysis.";
     } else {
         observationQualityEl.textContent = "EXCELLENT";
         analysisReadyEl.textContent = "READY";
-        scannerHintEl.textContent = "✅ Excellent input density. Neural Link standing by.";
+        scannerHintEl.textContent = "Optimal stroke density. Neural Link standing by.";
     }
 }
 
 function ensureInputReady() {
     if (analysisReadyEl.textContent !== "READY") {
         scannerHintEl.textContent =
-            "⚠ Observation quality insufficient. Draw a clearer digit before analysis.";
+            "Observation quality insufficient — draw a clearer digit first.";
         logEvent("Scanner Gate: blocked operation due to insufficient input quality.");
         return false;
     }
@@ -271,6 +309,7 @@ function ensureInputReady() {
 
 function scanThreat() {
     if (!ensureInputReady()) return;
+    triggerScanSweep();
     predictDigit();
 }
 
@@ -318,15 +357,39 @@ function createOracleRow(gridEl, label, value) {
     labelDiv.textContent = label;
     const valueDiv = document.createElement("div");
     valueDiv.textContent = value;
-    gridEl.appendChild(labelDiv);
-    gridEl.appendChild(valueDiv);
+    gridEl.append(labelDiv, valueDiv);
+}
+
+function createMeterRow(label, percent, variantClass) {
+    const row = document.createElement("div");
+    row.className = "meter-row";
+
+    const lbl = document.createElement("span");
+    lbl.className = "meter-label";
+    lbl.textContent = label;
+
+    const track = document.createElement("div");
+    track.className = "meter-track";
+
+    const fill = document.createElement("div");
+    fill.className = variantClass ? `meter-fill ${variantClass}` : "meter-fill";
+    const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+    fill.style.width = `${clamped}%`;
+    track.appendChild(fill);
+
+    const val = document.createElement("span");
+    val.className = "meter-value";
+    val.textContent = `${clamped.toFixed(1)}%`;
+
+    row.append(lbl, track, val);
+    return row;
 }
 
 function renderErrorReport(message) {
     resultEl.replaceChildren();
     const box = document.createElement("div");
     box.className = "error-banner";
-    box.textContent = `⚠ Telemetry Error: ${message}`;
+    box.textContent = `Telemetry Error: ${message}`;
     resultEl.appendChild(box);
 }
 
@@ -347,7 +410,7 @@ function generateThreatReport(result) {
         createOracleRow(
             grid,
             "Web Shield",
-            result.shield.anomaly_detected ? "🛡 ANOMALY CAUGHT" : "🛡 ACTIVE — CLEAN"
+            result.shield.anomaly_detected ? "ANOMALY CAUGHT" : "ACTIVE — CLEAN"
         );
         createOracleRow(
             grid,
@@ -361,15 +424,14 @@ function generateThreatReport(result) {
     resultEl.appendChild(grid);
 
     if (Array.isArray(result.top3) && result.top3.length > 0) {
-        const topStrip = document.createElement("div");
-        topStrip.className = "top3-strip";
-        result.top3.forEach((item) => {
-            const pill = document.createElement("span");
-            pill.className = "top3-pill";
-            pill.textContent = `#${item.digit}: ${item.confidence}%`;
-            topStrip.appendChild(pill);
+        const meters = document.createElement("div");
+        meters.className = "confidence-meters";
+        result.top3.forEach((item, idx) => {
+            meters.appendChild(
+                createMeterRow(`Digit ${item.digit}`, item.confidence, idx === 0 ? "" : null)
+            );
         });
-        resultEl.appendChild(topStrip);
+        resultEl.appendChild(meters);
     }
 
     const verdictBox = document.createElement("div");
@@ -458,14 +520,33 @@ function renderAttackReport(result) {
         "Outcome",
         shieldActive
             ? result.shield.attack_neutralized
-                ? "🛡 ATTACK NEUTRALIZED"
-                : "🚨 SHIELD BYPASSED"
+                ? "ATTACK NEUTRALIZED"
+                : "SHIELD BYPASSED"
             : result.attack_success
-            ? "🚨 ATTACK SUCCESSFUL"
-            : "⚠ ATTACK RESISTED"
+            ? "ATTACK SUCCESSFUL"
+            : "ATTACK RESISTED"
     );
     createOracleRow(grid, "Threat Level", result.threat);
     resultEl.appendChild(grid);
+
+    const meters = document.createElement("div");
+    meters.className = "confidence-meters";
+    meters.appendChild(
+        createMeterRow(`Clean #${result.original_digit}`, result.original_confidence, "")
+    );
+    meters.appendChild(
+        createMeterRow(`FGSM #${result.attacked_digit}`, result.attacked_confidence, "fill-attack")
+    );
+    if (shieldActive) {
+        meters.appendChild(
+            createMeterRow(
+                `Shield #${result.shield.defended_digit}`,
+                result.shield.defended_confidence,
+                "fill-shield"
+            )
+        );
+    }
+    resultEl.appendChild(meters);
 
     if (result.original_image && result.perturbation_image && result.attacked_image) {
         const diffGrid = document.createElement("div");
@@ -565,6 +646,7 @@ async function predictDigit() {
 async function attackDigit() {
     if (!ensureInputReady()) return;
 
+    triggerScanSweep();
     const image = canvas.toDataURL("image/png");
     const epsilon = epsilonSlider ? parseFloat(epsilonSlider.value) : 0.35;
     setBusyState(true, "attack");
