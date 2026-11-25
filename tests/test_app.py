@@ -45,7 +45,7 @@ class SpiderSenseTests(unittest.TestCase):
             self.assertIn("error", res.get_json())
 
     def test_predict_succeeds_and_does_not_write_processed_digit_file(self):
-        mtime_before = os.path.getmtime("processed_digit.png") if os.path.exists("processed_digit.png") else None
+        self.assertFalse(os.path.exists("processed_digit.png"))
 
         res = self.client.post("/predict", json={"image": make_drawn_digit_data_url("7")})
         self.assertEqual(res.status_code, 200)
@@ -59,8 +59,7 @@ class SpiderSenseTests(unittest.TestCase):
         self.assertIsInstance(data["top3"], list)
         self.assertEqual(len(data["top3"]), 3)
 
-        mtime_after = os.path.getmtime("processed_digit.png") if os.path.exists("processed_digit.png") else None
-        self.assertEqual(mtime_before, mtime_after)
+        self.assertFalse(os.path.exists("processed_digit.png"))
 
     def test_attack_rejects_invalid_epsilon(self):
         img = make_drawn_digit_data_url("7")
