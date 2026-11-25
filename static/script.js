@@ -9,19 +9,24 @@ const neuralLinkEl = document.getElementById("neuralLink");
 const scannerHintEl = document.getElementById("scannerHint");
 
 const threatCardEl = document.getElementById("threat-card");
+const shieldCardEl = document.getElementById("shield-card");
 const threatLevelEl = document.getElementById("threatLevel");
 const threatScoreEl = document.getElementById("threatScore");
+const shieldStatusEl = document.getElementById("shieldStatus");
 const currentAttackEl = document.getElementById("currentAttack");
 
 const resultEl = document.getElementById("result");
 const scanButton = document.getElementById("scanButton");
 const attackButton = document.getElementById("attackButton");
+const shieldButton = document.getElementById("shieldButton");
+const shieldButtonSubEl = document.getElementById("shieldButtonSub");
 const epsilonSlider = document.getElementById("epsilonSlider");
 const epsilonValueEl = document.getElementById("epsilonValue");
 
 let drawing = false;
 let hasMovedSinceStart = false;
 let isBusy = false;
+let shieldEnabled = false;
 
 function resetCanvasSurface() {
     ctx.fillStyle = "white";
@@ -121,6 +126,25 @@ if (epsilonSlider && epsilonValueEl) {
     });
 }
 
+function toggleWebShield() {
+    if (isBusy) return;
+    shieldEnabled = !shieldEnabled;
+
+    if (shieldEnabled) {
+        shieldStatusEl.textContent = "ACTIVE";
+        shieldCardEl.classList.add("pulse-shield");
+        shieldButton.classList.add("shield-armed");
+        shieldButtonSubEl.textContent = "ACTIVE — Feature Squeezing ON";
+        logEvent("Web Shield ARMED: feature squeezing & anomaly detection online.");
+    } else {
+        shieldStatusEl.textContent = "STANDBY";
+        shieldCardEl.classList.remove("pulse-shield");
+        shieldButton.classList.remove("shield-armed");
+        shieldButtonSubEl.textContent = "STANDBY — Click to Arm";
+        logEvent("Web Shield DISARMED: returned to standby.");
+    }
+}
+
 function logEvent(message) {
     const missionLog = document.getElementById("missionLog");
     const entry = document.createElement("div");
@@ -153,13 +177,15 @@ function setPulseState(levelText, scorePercent, villainName, severity) {
     threatScoreEl.textContent = `${scorePercent}%`;
     currentAttackEl.textContent = villainName;
 
-    threatCardEl.classList.remove("pulse-safe", "pulse-warning", "pulse-danger");
+    threatCardEl.classList.remove("pulse-safe", "pulse-warning", "pulse-danger", "pulse-shield");
     if (severity === "safe") {
         threatCardEl.classList.add("pulse-safe");
     } else if (severity === "warning") {
         threatCardEl.classList.add("pulse-warning");
     } else if (severity === "danger") {
         threatCardEl.classList.add("pulse-danger");
+    } else if (severity === "shield") {
+        threatCardEl.classList.add("pulse-shield");
     }
 }
 
@@ -167,6 +193,7 @@ function setBusyState(busy, activeMode) {
     isBusy = busy;
     scanButton.disabled = busy;
     attackButton.disabled = busy;
+    shieldButton.disabled = busy;
 
     if (busy) {
         neuralLinkEl.textContent = "TRANSMITTING";
@@ -248,6 +275,13 @@ function scanThreat() {
 }
 
 function generateOracleVerdict(result) {
+    if (result.shield && result.shield.enabled && result.shield.anomaly_detected) {
+        return {
+            verdict: `Web Shield detected input anomaly (L1 divergence ${result.shield.l1_divergence}, haze ${result.shield.haze_ratio}%).`,
+            recommendation: "Input sanitized via Feature Squeezing before final classification.",
+        };
+    }
+
     const quality = observationQualityEl.textContent;
     const confidence = parseFloat(result.confidence);
 
@@ -308,7 +342,22 @@ function generateThreatReport(result) {
     createOracleRow(grid, "Decision Margin", `${result.margin ?? "--"}%`);
     createOracleRow(grid, "Threat Level", result.threat);
     createOracleRow(grid, "Scanner Quality", observationQualityEl.textContent);
-    createOracleRow(grid, "Analysis Status", analysisReadyEl.textContent);
+
+    if (result.shield && result.shield.enabled) {
+        createOracleRow(
+            grid,
+            "Web Shield",
+            result.shield.anomaly_detected ? "🛡 ANOMALY CAUGHT" : "🛡 ACTIVE — CLEAN"
+        );
+        createOracleRow(
+            grid,
+            "Shield Telemetry",
+            `L1: ${result.shield.l1_divergence} | Haze: ${result.shield.haze_ratio}%`
+        );
+    } else {
+        createOracleRow(grid, "Analysis Status", analysisReadyEl.textContent);
+    }
+
     resultEl.appendChild(grid);
 
     if (Array.isArray(result.top3) && result.top3.length > 0) {
@@ -339,7 +388,9 @@ function generateThreatReport(result) {
     verdictBox.append(h3, pVerdict, strong, pRec);
     resultEl.appendChild(verdictBox);
 
-    const severity = result.threat.includes("SAFE")
+    const severity = result.threat.includes("SHIELDED")
+        ? "shield"
+        : result.threat.includes("SAFE")
         ? "safe"
         : result.threat.includes("SUSPICIOUS")
         ? "warning"
@@ -347,8 +398,12 @@ function generateThreatReport(result) {
     setPulseState(result.threat, result.threat_score ?? 0, "None", severity);
 
     logEvent(`Oracle: Digit ${result.digit} classified at ${result.confidence}% confidence.`);
+    if (result.shield && result.shield.enabled) {
+        logEvent(
+            `Web Shield: L1=${result.shield.l1_divergence}, haze=${result.shield.haze_ratio}%, anomaly=${result.shield.anomaly_detected}.`
+        );
+    }
     logEvent(`Oracle assessment: ${oracle.verdict}`);
-    logEvent(`Oracle recommendation: ${oracle.recommendation}`);
 }
 
 function createDiffCard(title, dataUrl) {
@@ -369,27 +424,66 @@ function createDiffCard(title, dataUrl) {
 function renderAttackReport(result) {
     resultEl.replaceChildren();
 
+    const shieldActive = Boolean(result.shield && result.shield.enabled);
+
     const grid = document.createElement("div");
     grid.className = "oracle-grid";
-    createOracleRow(grid, "Original Prediction", `Digit ${result.original_digit} (${result.original_confidence}%)`);
-    createOracleRow(grid, "Attacked Prediction", `Digit ${result.attacked_digit} (${result.attacked_confidence}%)`);
+    createOracleRow(
+        grid,
+        "Original Prediction",
+        `Digit ${result.original_digit} (${result.original_confidence}%)`
+    );
+    createOracleRow(
+        grid,
+        "Unshielded Attacked",
+        `Digit ${result.attacked_digit} (${result.attacked_confidence}%)`
+    );
+
+    if (shieldActive) {
+        createOracleRow(
+            grid,
+            "Web Shield Defended",
+            `Digit ${result.shield.defended_digit} (${result.shield.defended_confidence}%)`
+        );
+        createOracleRow(
+            grid,
+            "Shield Telemetry",
+            `L1: ${result.shield.l1_divergence} | Haze: ${result.shield.haze_ratio}%`
+        );
+    }
+
     createOracleRow(grid, "Attack Method", `FGSM (ε = ${result.epsilon})`);
     createOracleRow(
         grid,
-        "Attack Status",
-        result.attack_success ? "🚨 ATTACK SUCCESSFUL" : "⚠ ATTACK RESISTED"
+        "Outcome",
+        shieldActive
+            ? result.shield.attack_neutralized
+                ? "🛡 ATTACK NEUTRALIZED"
+                : "🚨 SHIELD BYPASSED"
+            : result.attack_success
+            ? "🚨 ATTACK SUCCESSFUL"
+            : "⚠ ATTACK RESISTED"
     );
     createOracleRow(grid, "Threat Level", result.threat);
     resultEl.appendChild(grid);
 
     if (result.original_image && result.perturbation_image && result.attacked_image) {
         const diffGrid = document.createElement("div");
-        diffGrid.className = "visual-diff-grid";
+        diffGrid.className =
+            shieldActive && result.shield.defended_image
+                ? "visual-diff-grid visual-diff-4"
+                : "visual-diff-grid";
+
         diffGrid.append(
             createDiffCard("Clean (28×28)", result.original_image),
             createDiffCard("Goblin Noise", result.perturbation_image),
             createDiffCard("Adversarial", result.attacked_image)
         );
+
+        if (shieldActive && result.shield.defended_image) {
+            diffGrid.append(createDiffCard("Web Shield", result.shield.defended_image));
+        }
+
         resultEl.appendChild(diffGrid);
     }
 
@@ -397,29 +491,50 @@ function renderAttackReport(result) {
     verdictBox.className = "oracle-verdict";
 
     const h3 = document.createElement("h3");
-    h3.textContent = "Spider-Sense Analysis";
+    h3.textContent = shieldActive ? "Web Shield Defense Report" : "Spider-Sense Analysis";
 
     const analysisP = document.createElement("p");
-    analysisP.textContent = result.attack_success
-        ? `Decision boundary crossed: ${result.original_digit} → ${result.attacked_digit} using FGSM perturbation.`
-        : "Model resisted label flip, though prediction confidence shifted under perturbation.";
+    if (shieldActive) {
+        analysisP.textContent = result.shield.defense_verdict;
+    } else {
+        analysisP.textContent = result.attack_success
+            ? `Decision boundary crossed: ${result.original_digit} → ${result.attacked_digit} using FGSM perturbation.`
+            : "Model resisted label flip, though prediction confidence shifted under perturbation.";
+    }
 
     const strong = document.createElement("strong");
     strong.textContent = "Recommendation";
     const recP = document.createElement("p");
-    recP.textContent = result.attack_success
-        ? "Web Shield adversarial defense recommended to harden this decision boundary."
-        : "Try higher ε intensity or test another digit to probe boundary margins.";
+    if (shieldActive) {
+        recP.textContent = result.shield.attack_neutralized
+            ? "Defense held against FGSM. Try raising ε or disabling Web Shield to compare."
+            : "Increase sanitization strength or switch to an adversarially trained model.";
+    } else {
+        recP.textContent = result.attack_success
+            ? "Arm Web Shield in Mission Command and re-run to neutralize this perturbation."
+            : "Try higher ε intensity or arm Web Shield to inspect L1 divergence telemetry.";
+    }
 
     verdictBox.append(h3, analysisP, strong, recP);
     resultEl.appendChild(verdictBox);
 
-    const severity = result.attack_success ? "danger" : "warning";
+    const severity = shieldActive
+        ? result.shield.attack_neutralized
+            ? "shield"
+            : "danger"
+        : result.attack_success
+        ? "danger"
+        : "warning";
     setPulseState(result.threat, result.threat_score ?? 50, "Green Goblin (FGSM)", severity);
 
     logEvent(
         `Goblin Attack (ε=${result.epsilon}): ${result.original_digit} (${result.original_confidence}%) → ${result.attacked_digit} (${result.attacked_confidence}%).`
     );
+    if (shieldActive) {
+        logEvent(
+            `Web Shield Defense: ${result.shield.defense_verdict} (L1=${result.shield.l1_divergence}, haze=${result.shield.haze_ratio}%).`
+        );
+    }
 }
 
 async function predictDigit() {
@@ -430,7 +545,7 @@ async function predictDigit() {
         const response = await fetch("/predict", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image }),
+            body: JSON.stringify({ image, shield: shieldEnabled }),
         });
 
         const result = await response.json();
@@ -458,7 +573,7 @@ async function attackDigit() {
         const response = await fetch("/attack", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image, epsilon }),
+            body: JSON.stringify({ image, epsilon, shield: shieldEnabled }),
         });
 
         const result = await response.json();

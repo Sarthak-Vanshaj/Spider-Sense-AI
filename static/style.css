@@ -198,6 +198,12 @@ p{
     box-shadow:0 10px 35px rgba(231,76,60,.2);
 
 }
+.status-card.pulse-shield{
+
+    border-color:rgba(58,166,255,.75);
+    box-shadow:0 10px 35px rgba(58,166,255,.22);
+
+}
 .status-card span{
 
     display:block;
@@ -344,6 +350,11 @@ p{
     gap:14px;
 
     margin-top:22px;
+
+}
+.visual-diff-grid.visual-diff-4{
+
+    grid-template-columns:repeat(4,1fr);
 
 }
 .diff-card{
@@ -672,6 +683,29 @@ p{
     opacity:.55;
 
     cursor:not-allowed;
+
+}
+.command-btn.shield-btn{
+
+    border-color:rgba(58,166,255,.45);
+    box-shadow:0 0 14px rgba(58,166,255,.12);
+
+}
+.command-btn.shield-btn:hover:not(:disabled){
+
+    border-color:rgba(58,166,255,.8);
+
+}
+.command-btn.shield-armed{
+
+    border-color:rgba(46,204,113,.75);
+    background:rgba(46,204,113,.14);
+    box-shadow:0 0 22px rgba(46,204,113,.22);
+
+}
+.command-btn.shield-armed span{
+
+    color:var(--success);
 
 }
 .command-btn span{

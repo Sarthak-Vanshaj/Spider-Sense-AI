@@ -20,7 +20,10 @@ Spider-Sense AI is a Flask + TensorFlow web application built around the **WebWe
 - **Green Goblin Attack Simulation (FGSM)**
   - Computes real **Fast Gradient Sign Method (FGSM)** perturbations using `tf.GradientTape` (`SparseCategoricalCrossentropy`).
   - Adjustable attack intensity slider (`ε = 0.05` to `0.50`).
-  - Returns a 3-panel visual diff: **Clean `28×28`**, **Goblin Perturbation Heatmap**, and **Adversarial Image**.
+  - Returns a visual diff: **Clean `28×28`**, **Goblin Perturbation Heatmap**, **Adversarial Image**, and (when armed) **Web Shield Restored**.
+- **Web Shield Defense Engine (Active Toggle)**
+  - Implements **Feature Squeezing** (background perturbation haze suppression + `3×3` median spatial smoothing) and **L1 Probability Divergence** anomaly detection.
+  - Compares unshielded vs. sanitized predictions live in Oracle and Operation Archive, neutralizing or quarantining FGSM attacks.
 - **Project Archive (Operation Archive)**
   - Timestamped live event log capturing scanner events, classifications, verdicts, and attack outcomes.
 - **Security Hardening**
@@ -87,7 +90,8 @@ Open `http://127.0.0.1:5000` in your browser.
 
 ## Roadmap
 
-- [ ] **Web Shield Defense Engine**: Feature squeezing / input sanitization anomaly detector + adversarially hardened model toggle.
+- [x] **Web Shield Defense (Phase 1)**: Feature squeezing, background haze suppression & L1 divergence anomaly detector.
+- [ ] **Web Shield Defense (Phase 2)**: Adversarially trained hardened model toggle (`train.py`).
 - [ ] **Multi-Villain Attack Suite**: Iterative PGD, targeted adversarial attacks, and non-gradient perturbation stress tests.
-- [ ] **Reproducible Training & CLI Eval**: Training pipeline (`train.py`) and terminal evaluation benchmarks.
+- [ ] **CLI Evaluation Suite**: Automated clean vs. adversarial vs. shielded benchmark scorecard (`evaluate.py`).
 - [ ] **Real-World Image Upload Mode**: Extend beyond `28×28` canvas digits to uploaded real-world vision benchmarks.

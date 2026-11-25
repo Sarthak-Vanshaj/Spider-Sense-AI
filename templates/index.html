@@ -7,7 +7,7 @@
     <title>Spider-Sense AI</title>
 
     <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
+          href="{{ url_for('static', filename='style.css', v='3') }}">
 </head>
 
 <body>
@@ -50,7 +50,7 @@
 
             </div>
 
-            <div class="status-card">
+            <div class="status-card" id="shield-card">
 
                 <h3>Web Shield</h3>
 
@@ -171,6 +171,7 @@
 
                 <button
                     id="scanButton"
+                    type="button"
                     class="command-btn primary"
                     onclick="scanThreat()">
                     🕷 Scan Threat
@@ -178,6 +179,7 @@
 
                 <button
                     id="attackButton"
+                    type="button"
                     class="command-btn danger"
                     onclick="attackDigit()">
                     👺 Launch Goblin Attack
@@ -185,14 +187,16 @@
 
                 <button
                     id="shieldButton"
-                    class="command-btn disabled"
-                    disabled>
+                    type="button"
+                    class="command-btn shield-btn"
+                    onclick="toggleWebShield()">
                     🛡 Web Shield
-                    <span>Coming Online</span>
+                    <span id="shieldButtonSub">STANDBY — Click to Arm</span>
                 </button>
 
                 <button
                     id="clearButton"
+                    type="button"
                     class="command-btn secondary"
                     onclick="clearCanvas()">
                     🧹 Reset Scanner
@@ -218,6 +222,6 @@
 
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='3') }}"></script>
 </body>
 </html>

@@ -35,6 +35,11 @@ class SpiderSenseTests(unittest.TestCase):
         body = res.get_data(as_text=True)
         self.assertIn("SPIDER-SENSE AI", body)
         self.assertIn("epsilonSlider", body)
+        self.assertIn("toggleWebShield()", body)
+        self.assertNotIn("Coming Online", body)
+        script_res = self.client.get("/static/script.js")
+        self.assertEqual(script_res.status_code, 200)
+        self.assertIn("function toggleWebShield", script_res.get_data(as_text=True))
         self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
         self.assertEqual(res.headers.get("X-Frame-Options"), "DENY")
 
@@ -91,6 +96,38 @@ class SpiderSenseTests(unittest.TestCase):
         self.assertTrue(data["original_image"].startswith("data:image/png;base64,"))
         self.assertTrue(data["attacked_image"].startswith("data:image/png;base64,"))
         self.assertTrue(data["perturbation_image"].startswith("data:image/png;base64,"))
+        self.assertEqual(data["shield"], {"enabled": False})
+
+    def test_predict_rejects_non_boolean_shield(self):
+        res = self.client.post("/predict", json={"image": make_drawn_digit_data_url("0"), "shield": "yes"})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("error", res.get_json())
+
+    def test_predict_with_web_shield_clean_digit(self):
+        res = self.client.post("/predict", json={"image": make_drawn_digit_data_url("0"), "shield": True})
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["shield"]["enabled"])
+        self.assertFalse(data["shield"]["anomaly_detected"])
+        self.assertEqual(data["shield"]["defended_digit"], 0)
+        self.assertTrue(data["shield"]["defended_image"].startswith("data:image/png;base64,"))
+
+    def test_attack_with_web_shield_neutralizes_fgsm(self):
+        res = self.client.post(
+            "/attack",
+            json={"image": make_drawn_digit_data_url("0"), "epsilon": 0.25, "shield": True},
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+
+        self.assertEqual(data["original_digit"], 0)
+        self.assertTrue(data["raw_attack_success"])
+        self.assertFalse(data["attack_success"])
+        self.assertTrue(data["shield"]["enabled"])
+        self.assertTrue(data["shield"]["attack_neutralized"])
+        self.assertTrue(data["shield"]["recovered"])
+        self.assertEqual(data["shield"]["defended_digit"], 0)
+        self.assertTrue(data["shield"]["defended_image"].startswith("data:image/png;base64,"))
 
 
 if __name__ == "__main__":
