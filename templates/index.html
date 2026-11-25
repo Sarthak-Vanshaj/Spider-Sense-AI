@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spider-Sense AI</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
-
 </head>
 
 <body>
@@ -87,6 +87,7 @@
                     width="280"
                     height="280">
                 </canvas>
+
                 <div class="scanner-hud">
 
                     <div class="hud-row">
@@ -108,16 +109,10 @@
                         <span>Observation Quality</span>
                         <span id="observationQuality">--</span>
                     </div>
+
                     <div class="hud-row">
-
                         <span>Analysis Ready</span>
-
-                        <span id="analysisReady">
-
-                            NO
-
-                        </span>
-
+                        <span id="analysisReady">NO</span>
                     </div>
 
                 </div>
@@ -127,7 +122,6 @@
                 </p>
 
             </section>
-            
 
             <!-- Report -->
 
@@ -136,9 +130,7 @@
                 <h2 class="report-title">Threat Intelligence</h2>
 
                 <div id="result">
-
                     Standing by for incoming telemetry...
-
                 </div>
 
             </section>
@@ -156,17 +148,11 @@
                 <div class="log-entry">
 
                     <span class="log-time">
-
                         --:--
-
                     </span>
 
                     <div class="log-message">
-
-                        System initialized.
-
-                        Awaiting first operation.
-
+                        System initialized. Awaiting first operation.
                     </div>
 
                 </div>
@@ -187,47 +173,51 @@
                     id="scanButton"
                     class="command-btn primary"
                     onclick="scanThreat()">
-
                     🕷 Scan Threat
+                </button>
 
-             </button>
-
-             <button
+                <button
                     id="attackButton"
                     class="command-btn danger"
                     onclick="attackDigit()">
-
                     👺 Launch Goblin Attack
-
                 </button>
 
                 <button
                     id="shieldButton"
                     class="command-btn disabled"
                     disabled>
-
                     🛡 Web Shield
-
                     <span>Coming Online</span>
-
                 </button>
 
                 <button
                     id="clearButton"
                     class="command-btn secondary"
                     onclick="clearCanvas()">
-
                     🧹 Reset Scanner
-
                 </button>
 
+            </div>
+
+            <div class="epsilon-control">
+                <label for="epsilonSlider">
+                    Goblin Perturbation Intensity (FGSM ε):
+                    <strong id="epsilonValue">0.35</strong>
+                </label>
+                <input
+                    id="epsilonSlider"
+                    type="range"
+                    min="0.05"
+                    max="0.50"
+                    step="0.05"
+                    value="0.35">
             </div>
 
         </section>
 
     </div>
-    <script
-    src="{{ url_for('static', filename='script.js') }}">
-    </script>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
