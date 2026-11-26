@@ -20,16 +20,55 @@ const currentAttackEl = document.getElementById("currentAttack");
 const resultEl = document.getElementById("result");
 const scanButton = document.getElementById("scanButton");
 const attackButton = document.getElementById("attackButton");
+const attackButtonSubEl = document.getElementById("attackButtonSub");
 const shieldButton = document.getElementById("shieldButton");
 const shieldPillEl = document.getElementById("shieldPill");
 const shieldButtonSubEl = document.getElementById("shieldButtonSub");
+
 const epsilonSlider = document.getElementById("epsilonSlider");
 const epsilonValueEl = document.getElementById("epsilonValue");
+const stepsControlEl = document.getElementById("stepsControl");
+const pgdStepsSlider = document.getElementById("pgdStepsSlider");
+const pgdStepsValueEl = document.getElementById("pgdStepsValue");
+const targetDigitControlEl = document.getElementById("targetDigitControl");
+
+const VILLAIN_UI = {
+    fgsm: {
+        buttonLabel: "Launch Goblin Attack",
+        buttonSub: "Single-step FGSM perturbation",
+        displayName: "Green Goblin (FGSM)",
+        needsSteps: false,
+        needsTarget: false,
+    },
+    pgd: {
+        buttonLabel: "Launch Doc Ock PGD",
+        buttonSub: "Iterative L∞ gradient attack",
+        displayName: "Doc Ock (PGD)",
+        needsSteps: true,
+        needsTarget: false,
+    },
+    targeted: {
+        buttonLabel: "Launch Mysterio Hack",
+        buttonSub: "Targeted PGD class hijacking",
+        displayName: "Mysterio (Targeted)",
+        needsSteps: true,
+        needsTarget: true,
+    },
+    noise: {
+        buttonLabel: "Launch Electro Surge",
+        buttonSub: "Gaussian & impulse noise stress",
+        displayName: "Electro (Noise)",
+        needsSteps: false,
+        needsTarget: false,
+    },
+};
 
 let drawing = false;
 let hasMovedSinceStart = false;
 let isBusy = false;
 let shieldEnabled = false;
+let selectedVillain = "fgsm";
+let selectedTargetDigit = 3;
 
 function resetCanvasSurface() {
     ctx.fillStyle = "white";
@@ -138,6 +177,37 @@ if (epsilonSlider && epsilonValueEl) {
     });
 }
 
+if (pgdStepsSlider && pgdStepsValueEl) {
+    pgdStepsSlider.addEventListener("input", () => {
+        pgdStepsValueEl.textContent = pgdStepsSlider.value;
+    });
+}
+
+function selectVillain(villainKey) {
+    if (isBusy || !VILLAIN_UI[villainKey]) return;
+    selectedVillain = villainKey;
+    const cfg = VILLAIN_UI[villainKey];
+
+    document.querySelectorAll(".villain-chip").forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.villain === villainKey);
+    });
+
+    setButtonLabel(attackButton, cfg.buttonLabel);
+    if (attackButtonSubEl) attackButtonSubEl.textContent = cfg.buttonSub;
+
+    if (stepsControlEl) stepsControlEl.classList.toggle("is-hidden", !cfg.needsSteps);
+    if (targetDigitControlEl) targetDigitControlEl.classList.toggle("is-hidden", !cfg.needsTarget);
+
+    logEvent(`Villain Selected: ${cfg.displayName} armed in Mission Command.`);
+}
+
+function selectTargetDigit(digit) {
+    selectedTargetDigit = digit;
+    document.querySelectorAll(".target-digit-btn").forEach((btn) => {
+        btn.classList.toggle("active", Number(btn.dataset.digit) === digit);
+    });
+}
+
 function toggleWebShield() {
     if (isBusy) return;
     shieldEnabled = !shieldEnabled;
@@ -162,7 +232,15 @@ function toggleWebShield() {
 function classifyLogSubsystem(message) {
     const text = String(message);
     if (text.startsWith("Web Shield")) return { label: "SHIELD", cls: "badge-shield" };
-    if (text.startsWith("Goblin")) return { label: "GOBLIN", cls: "badge-goblin" };
+    if (
+        text.startsWith("Goblin") ||
+        text.startsWith("Doc Ock") ||
+        text.startsWith("Mysterio") ||
+        text.startsWith("Electro") ||
+        text.startsWith("Villain")
+    ) {
+        return { label: "VILLAIN", cls: "badge-goblin" };
+    }
     if (text.startsWith("Oracle")) return { label: "ORACLE", cls: "badge-oracle" };
     if (text.startsWith("Neural Scanner") || text.startsWith("Scanner")) {
         return { label: "SCANNER", cls: "badge-system" };
@@ -230,18 +308,19 @@ function setBusyState(busy, activeMode) {
     scanButton.disabled = busy;
     attackButton.disabled = busy;
     shieldButton.disabled = busy;
+    const activeVillainLabel = VILLAIN_UI[selectedVillain].buttonLabel;
 
     if (busy) {
         neuralLinkEl.textContent = "TRANSMITTING";
         setButtonLabel(scanButton, activeMode === "scan" ? "Scanning..." : "Scan Threat");
         setButtonLabel(
             attackButton,
-            activeMode === "attack" ? "Attacking..." : "Launch Goblin Attack"
+            activeMode === "attack" ? "Attacking..." : activeVillainLabel
         );
     } else {
         neuralLinkEl.textContent = "READY";
         setButtonLabel(scanButton, "Scan Threat");
-        setButtonLabel(attackButton, "Launch Goblin Attack");
+        setButtonLabel(attackButton, activeVillainLabel);
     }
 }
 
@@ -285,7 +364,7 @@ function updateInkCoverage() {
     } else if (coverage < 6) {
         observationQualityEl.textContent = "FAIR";
         analysisReadyEl.textContent = "READY";
-        scannerHintEl.textContent = "Input ready for Spider-Sense scan or Goblin simulation.";
+        scannerHintEl.textContent = "Input ready for Spider-Sense scan or Villain simulation.";
     } else if (coverage < 10) {
         observationQualityEl.textContent = "GOOD";
         analysisReadyEl.textContent = "READY";
@@ -487,9 +566,16 @@ function renderAttackReport(result) {
     resultEl.replaceChildren();
 
     const shieldActive = Boolean(result.shield && result.shield.enabled);
+    const villainName = result.villain || "Green Goblin (FGSM)";
+    const methodSummary =
+        result.steps && result.steps > 1
+            ? `${result.attack_method} (${result.steps} steps, ε = ${result.epsilon})`
+            : `${result.attack_method || "FGSM"} (ε = ${result.epsilon})`;
 
     const grid = document.createElement("div");
     grid.className = "oracle-grid";
+    createOracleRow(grid, "Villain", villainName);
+    createOracleRow(grid, "Attack Method", methodSummary);
     createOracleRow(
         grid,
         "Original Prediction",
@@ -500,6 +586,16 @@ function renderAttackReport(result) {
         "Unshielded Attacked",
         `Digit ${result.attacked_digit} (${result.attacked_confidence}%)`
     );
+
+    if (result.attack_type === "targeted" && result.target_digit !== null) {
+        createOracleRow(
+            grid,
+            "Target Objective",
+            result.target_hit
+                ? `Digit ${result.target_digit} (HIJACKED)`
+                : `Digit ${result.target_digit} (MISSED)`
+        );
+    }
 
     if (shieldActive) {
         createOracleRow(
@@ -514,7 +610,6 @@ function renderAttackReport(result) {
         );
     }
 
-    createOracleRow(grid, "Attack Method", `FGSM (ε = ${result.epsilon})`);
     createOracleRow(
         grid,
         "Outcome",
@@ -522,6 +617,8 @@ function renderAttackReport(result) {
             ? result.shield.attack_neutralized
                 ? "ATTACK NEUTRALIZED"
                 : "SHIELD BYPASSED"
+            : result.target_hit
+            ? "TARGET HIJACKED"
             : result.attack_success
             ? "ATTACK SUCCESSFUL"
             : "ATTACK RESISTED"
@@ -535,7 +632,7 @@ function renderAttackReport(result) {
         createMeterRow(`Clean #${result.original_digit}`, result.original_confidence, "")
     );
     meters.appendChild(
-        createMeterRow(`FGSM #${result.attacked_digit}`, result.attacked_confidence, "fill-attack")
+        createMeterRow(`Attack #${result.attacked_digit}`, result.attacked_confidence, "fill-attack")
     );
     if (shieldActive) {
         meters.appendChild(
@@ -557,7 +654,7 @@ function renderAttackReport(result) {
 
         diffGrid.append(
             createDiffCard("Clean (28×28)", result.original_image),
-            createDiffCard("Goblin Noise", result.perturbation_image),
+            createDiffCard("Perturbation", result.perturbation_image),
             createDiffCard("Adversarial", result.attacked_image)
         );
 
@@ -577,10 +674,14 @@ function renderAttackReport(result) {
     const analysisP = document.createElement("p");
     if (shieldActive) {
         analysisP.textContent = result.shield.defense_verdict;
+    } else if (result.attack_type === "targeted") {
+        analysisP.textContent = result.target_hit
+            ? `Mysterio successfully hijacked prediction from ${result.original_digit} to target Digit ${result.target_digit}.`
+            : `Targeted hijack missed Digit ${result.target_digit}; model shifted to ${result.attacked_digit}.`;
     } else {
         analysisP.textContent = result.attack_success
-            ? `Decision boundary crossed: ${result.original_digit} → ${result.attacked_digit} using FGSM perturbation.`
-            : "Model resisted label flip, though prediction confidence shifted under perturbation.";
+            ? `${villainName} crossed decision boundary: ${result.original_digit} → ${result.attacked_digit}.`
+            : `${villainName} failed to flip the predicted class, though confidence shifted under perturbation.`;
     }
 
     const strong = document.createElement("strong");
@@ -588,12 +689,12 @@ function renderAttackReport(result) {
     const recP = document.createElement("p");
     if (shieldActive) {
         recP.textContent = result.shield.attack_neutralized
-            ? "Defense held against FGSM. Try raising ε or disabling Web Shield to compare."
-            : "Increase sanitization strength or switch to an adversarially trained model.";
+            ? "Defense held. Try Doc Ock (PGD) with higher steps or disable Web Shield to compare."
+            : "Iterative perturbation bypassed input sanitization — adversarial retraining recommended.";
     } else {
         recP.textContent = result.attack_success
-            ? "Arm Web Shield in Mission Command and re-run to neutralize this perturbation."
-            : "Try higher ε intensity or arm Web Shield to inspect L1 divergence telemetry.";
+            ? "Arm Web Shield in Mission Command and re-run to test defense resilience."
+            : "Try Doc Ock (PGD) or higher ε intensity to probe tighter decision boundaries.";
     }
 
     verdictBox.append(h3, analysisP, strong, recP);
@@ -606,10 +707,16 @@ function renderAttackReport(result) {
         : result.attack_success
         ? "danger"
         : "warning";
-    setPulseState(result.threat, result.threat_score ?? 50, "Green Goblin (FGSM)", severity);
+    setPulseState(result.threat, result.threat_score ?? 50, villainName, severity);
 
+    const paramTag =
+        result.attack_type === "targeted"
+            ? `ε=${result.epsilon}, steps=${result.steps}, target=#${result.target_digit}`
+            : result.steps > 1
+            ? `ε=${result.epsilon}, steps=${result.steps}`
+            : `ε=${result.epsilon}`;
     logEvent(
-        `Goblin Attack (ε=${result.epsilon}): ${result.original_digit} (${result.original_confidence}%) → ${result.attacked_digit} (${result.attacked_confidence}%).`
+        `${villainName} (${paramTag}): ${result.original_digit} (${result.original_confidence}%) → ${result.attacked_digit} (${result.attacked_confidence}%).`
     );
     if (shieldActive) {
         logEvent(
@@ -649,13 +756,29 @@ async function attackDigit() {
     triggerScanSweep();
     const image = canvas.toDataURL("image/png");
     const epsilon = epsilonSlider ? parseFloat(epsilonSlider.value) : 0.35;
+    const steps = pgdStepsSlider ? parseInt(pgdStepsSlider.value, 10) : 10;
+
+    const payload = {
+        image,
+        epsilon,
+        shield: shieldEnabled,
+        attack_type: selectedVillain,
+    };
+
+    if (selectedVillain === "pgd" || selectedVillain === "targeted") {
+        payload.steps = steps;
+    }
+    if (selectedVillain === "targeted") {
+        payload.target_digit = selectedTargetDigit;
+    }
+
     setBusyState(true, "attack");
 
     try {
         const response = await fetch("/attack", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image, epsilon, shield: shieldEnabled }),
+            body: JSON.stringify(payload),
         });
 
         const result = await response.json();
@@ -666,7 +789,7 @@ async function attackDigit() {
         renderAttackReport(result);
     } catch (err) {
         renderErrorReport(err.message);
-        logEvent(`Goblin Attack failed: ${err.message}`);
+        logEvent(`${VILLAIN_UI[selectedVillain].displayName} failed: ${err.message}`);
     } finally {
         setBusyState(false, null);
     }

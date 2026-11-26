@@ -35,11 +35,15 @@ class SpiderSenseTests(unittest.TestCase):
         body = res.get_data(as_text=True)
         self.assertIn("SPIDER-SENSE AI", body)
         self.assertIn("epsilonSlider", body)
+        self.assertIn("pgdStepsSlider", body)
+        self.assertIn("targetDigitGroup", body)
         self.assertIn("toggleWebShield()", body)
         self.assertNotIn("Coming Online", body)
-        script_res = self.client.get("/static/script.js")
-        self.assertEqual(script_res.status_code, 200)
-        self.assertIn("function toggleWebShield", script_res.get_data(as_text=True))
+        with self.client.get("/static/script.js") as script_res:
+            self.assertEqual(script_res.status_code, 200)
+            script_text = script_res.get_data(as_text=True)
+            self.assertIn("function toggleWebShield", script_text)
+            self.assertIn("function selectVillain", script_text)
         self.assertEqual(res.headers.get("X-Content-Type-Options"), "nosniff")
         self.assertEqual(res.headers.get("X-Frame-Options"), "DENY")
 
@@ -110,6 +114,76 @@ class SpiderSenseTests(unittest.TestCase):
         self.assertTrue(data["shield"]["enabled"])
         self.assertFalse(data["shield"]["anomaly_detected"])
         self.assertEqual(data["shield"]["defended_digit"], 0)
+        self.assertTrue(data["shield"]["defended_image"].startswith("data:image/png;base64,"))
+
+    def test_attack_rejects_invalid_attack_type_steps_and_target(self):
+        img = make_drawn_digit_data_url("0")
+        bad_payloads = [
+            {"image": img, "attack_type": "unknown"},
+            {"image": img, "attack_type": "pgd", "steps": 1},
+            {"image": img, "attack_type": "pgd", "steps": 99},
+            {"image": img, "attack_type": "pgd", "steps": "ten"},
+            {"image": img, "attack_type": "targeted", "target_digit": 12},
+            {"image": img, "attack_type": "targeted", "target_digit": "3"},
+        ]
+        for payload in bad_payloads:
+            res = self.client.post("/attack", json=payload)
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("error", res.get_json())
+
+    def test_attack_pgd_doc_ock_executes_iterative_attack(self):
+        res = self.client.post(
+            "/attack",
+            json={
+                "image": make_drawn_digit_data_url("0"),
+                "attack_type": "pgd",
+                "epsilon": 0.25,
+                "steps": 8,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["attack_type"], "pgd")
+        self.assertEqual(data["villain"], "Doc Ock (PGD)")
+        self.assertEqual(data["steps"], 8)
+        self.assertIsNone(data["target_digit"])
+        self.assertFalse(data["target_hit"])
+        self.assertTrue(data["perturbation_image"].startswith("data:image/png;base64,"))
+
+    def test_attack_targeted_mysterio_reports_target_metadata(self):
+        res = self.client.post(
+            "/attack",
+            json={
+                "image": make_drawn_digit_data_url("0"),
+                "attack_type": "targeted",
+                "epsilon": 0.35,
+                "steps": 12,
+                "target_digit": 3,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["attack_type"], "targeted")
+        self.assertEqual(data["villain"], "Mysterio (Target #3)")
+        self.assertEqual(data["target_digit"], 3)
+        self.assertEqual(data["steps"], 12)
+        self.assertIsInstance(data["target_hit"], bool)
+
+    def test_attack_noise_electro_with_web_shield(self):
+        res = self.client.post(
+            "/attack",
+            json={
+                "image": make_drawn_digit_data_url("0"),
+                "attack_type": "noise",
+                "epsilon": 0.25,
+                "shield": True,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["attack_type"], "noise")
+        self.assertEqual(data["villain"], "Electro (Noise)")
+        self.assertTrue(data["shield"]["enabled"])
         self.assertTrue(data["shield"]["defended_image"].startswith("data:image/png;base64,"))
 
     def test_attack_with_web_shield_neutralizes_fgsm(self):

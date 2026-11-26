@@ -17,10 +17,12 @@ Spider-Sense AI is a Flask + TensorFlow web application built around the **WebWe
 - **Project Oracle (Threat Intelligence)**
   - Evaluates top prediction, confidence percentage, top-2 decision margin, and top-3 class probabilities.
   - Generates dynamic Oracle verdicts and actionable recommendations.
-- **Green Goblin Attack Simulation (FGSM)**
-  - Computes real **Fast Gradient Sign Method (FGSM)** perturbations using `tf.GradientTape` (`SparseCategoricalCrossentropy`).
-  - Adjustable attack intensity slider (`ε = 0.05` to `0.50`).
-  - Returns a visual diff: **Clean `28×28`**, **Goblin Perturbation Heatmap**, **Adversarial Image**, and (when armed) **Web Shield Restored**.
+- **Multi-Villain Attack Arsenal (`/attack`)**
+  - **Green Goblin (`fgsm`)**: Single-step $L_\infty$ Fast Gradient Sign Method perturbation using `tf.GradientTape`.
+  - **Doc Ock (`pgd`)**: Iterative Projected Gradient Descent (`steps = 2–20`, $L_\infty$-bounded) with random initialization jitter for stronger boundary evasion.
+  - **Mysterio (`targeted`)**: Targeted iterative PGD minimizing cross-entropy toward a chosen `target_digit` (`0–9`).
+  - **Electro (`noise`)**: Non-gradient Gaussian + sparse impulse noise stress test.
+  - Returns a continuous perturbation heatmap, clean vs. adversarial confidence meters, and (when armed) **Web Shield Restored** visual diff.
 - **Web Shield Defense Engine (Active Toggle)**
   - Implements **Feature Squeezing** (background perturbation haze suppression + `3×3` median spatial smoothing) and **L1 Probability Divergence** anomaly detection.
   - Compares unshielded vs. sanitized predictions live in Oracle and Operation Archive, neutralizing or quarantining FGSM attacks.
@@ -98,7 +100,7 @@ Open `http://127.0.0.1:5000` in your browser.
 ## Roadmap
 
 - [x] **Web Shield Defense (Phase 1)**: Feature squeezing, background haze suppression & L1 divergence anomaly detector.
+- [x] **Multi-Villain Attack Suite**: Green Goblin (FGSM), Doc Ock (Iterative PGD), Mysterio (Targeted PGD), and Electro (Noise Stress).
 - [ ] **Web Shield Defense (Phase 2)**: Adversarially trained hardened model toggle (`train.py`).
-- [ ] **Multi-Villain Attack Suite**: Iterative PGD, targeted adversarial attacks, and non-gradient perturbation stress tests.
 - [ ] **CLI Evaluation Suite**: Automated clean vs. adversarial vs. shielded benchmark scorecard (`evaluate.py`).
 - [ ] **Real-World Image Upload Mode**: Extend beyond `28×28` canvas digits to uploaded real-world vision benchmarks.

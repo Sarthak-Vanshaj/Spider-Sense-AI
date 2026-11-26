@@ -30,6 +30,30 @@ MAX_DECODED_IMAGE_BYTES = 1_500_000
 SHIELD_L1_THRESHOLD = 0.35
 SHIELD_HAZE_THRESHOLD = 0.18
 
+# Multi-Villain Attack Registry
+VILLAIN_REGISTRY = {
+    "fgsm": {
+        "villain": "Green Goblin (FGSM)",
+        "method": "FGSM (Single-Step)",
+        "default_steps": 1,
+    },
+    "pgd": {
+        "villain": "Doc Ock (PGD)",
+        "method": "PGD (Iterative L∞)",
+        "default_steps": 10,
+    },
+    "targeted": {
+        "villain": "Mysterio (Targeted)",
+        "method": "Targeted PGD",
+        "default_steps": 12,
+    },
+    "noise": {
+        "villain": "Electro (Noise)",
+        "method": "Gaussian + Impulse Stress",
+        "default_steps": 1,
+    },
+}
+
 # Lightweight in-memory sliding-window rate limiter per client IP
 _rate_lock = threading.Lock()
 _rate_buckets = defaultdict(deque)
@@ -59,8 +83,8 @@ print("✅ Spider-Sense Ready!")
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
 
 
-def create_adversarial_pattern(image: tf.Tensor, label: tf.Tensor) -> tf.Tensor:
-    """Compute FGSM perturbation sign using model gradients."""
+def compute_input_gradient_sign(image: tf.Tensor, label: tf.Tensor) -> tf.Tensor:
+    """Compute sign of input gradient for cross-entropy loss on `label`."""
     image = tf.cast(image, tf.float32)
 
     with tf.GradientTape() as tape:
@@ -70,6 +94,72 @@ def create_adversarial_pattern(image: tf.Tensor, label: tf.Tensor) -> tf.Tensor:
 
     gradient = tape.gradient(loss, image)
     return tf.sign(gradient)
+
+
+def run_fgsm_attack(image_tensor: np.ndarray, source_label: int, epsilon: float) -> np.ndarray:
+    """Single-step untargeted FGSM perturbation within L-infinity epsilon."""
+    label_tensor = tf.convert_to_tensor([source_label])
+    grad_sign = compute_input_gradient_sign(image_tensor, label_tensor)
+    attacked = tf.clip_by_value(image_tensor + (epsilon * grad_sign), 0.0, 1.0)
+    return attacked.numpy().astype(np.float32)
+
+
+def run_pgd_attack(
+    image_tensor: np.ndarray,
+    goal_label: int,
+    epsilon: float,
+    steps: int,
+    targeted: bool = False,
+) -> np.ndarray:
+    """Iterative L-infinity Projected Gradient Descent (untargeted or targeted)."""
+    rng = np.random.default_rng()
+    init_jitter = rng.uniform(-epsilon * 0.25, epsilon * 0.25, size=image_tensor.shape).astype(
+        np.float32
+    )
+    adv = np.clip(image_tensor + init_jitter, 0.0, 1.0).astype(np.float32)
+
+    alpha = max(0.01, (epsilon / max(steps, 1)) * 1.8)
+    direction = -1.0 if targeted else 1.0
+    label_tensor = tf.convert_to_tensor([goal_label])
+
+    for _ in range(steps):
+        grad_sign = compute_input_gradient_sign(adv, label_tensor).numpy()
+        adv = adv + (direction * alpha * grad_sign)
+        delta = np.clip(adv - image_tensor, -epsilon, epsilon)
+        adv = np.clip(image_tensor + delta, 0.0, 1.0).astype(np.float32)
+
+    return adv
+
+
+def run_noise_attack(image_tensor: np.ndarray, epsilon: float) -> np.ndarray:
+    """Non-gradient Gaussian and sparse impulse noise stress test."""
+    rng = np.random.default_rng()
+    gaussian = rng.normal(0.0, epsilon * 0.65, size=image_tensor.shape).astype(np.float32)
+    impulse_mask = rng.random(size=image_tensor.shape) < min(0.16, epsilon * 0.32)
+    impulse_values = rng.choice([-epsilon, epsilon], size=image_tensor.shape).astype(np.float32)
+    noisy = image_tensor + gaussian + np.where(impulse_mask, impulse_values, 0.0)
+    return np.clip(noisy, 0.0, 1.0).astype(np.float32)
+
+
+def execute_villain_attack(
+    image_tensor: np.ndarray,
+    attack_type: str,
+    original_label: int,
+    epsilon: float,
+    steps: int,
+    target_digit: int | None,
+) -> np.ndarray:
+    """Dispatch the requested villain attack strategy and return adversarial tensor."""
+    if attack_type == "fgsm":
+        return run_fgsm_attack(image_tensor, original_label, epsilon)
+    if attack_type == "pgd":
+        return run_pgd_attack(image_tensor, original_label, epsilon, steps, targeted=False)
+    if attack_type == "targeted":
+        goal = target_digit if target_digit is not None else (original_label + 1) % 10
+        return run_pgd_attack(image_tensor, goal, epsilon, steps, targeted=True)
+    if attack_type == "noise":
+        return run_noise_attack(image_tensor, epsilon)
+    raise ValueError(f"Unsupported attack_type '{attack_type}'.")
 
 
 def decode_canvas_image(payload: dict) -> Image.Image:
@@ -108,7 +198,6 @@ def preprocess_canvas_image(image: Image.Image) -> tuple[np.ndarray, np.ndarray]
     inverted = ImageOps.invert(image)
     arr = np.asarray(inverted, dtype=np.uint8)
 
-    # Remove very faint canvas anti-aliasing artifacts before bounding-box centering
     mask = arr > 20
     if np.any(mask):
         coords = np.argwhere(mask)
@@ -137,12 +226,11 @@ def preprocess_canvas_image(image: Image.Image) -> tuple[np.ndarray, np.ndarray]
 
 
 def sanitize_input_for_shield(image_tensor: np.ndarray) -> tuple[np.ndarray, float]:
-    """Strip FGSM background haze and apply 3x3 median spatial smoothing."""
+    """Strip distributed background haze and apply 3x3 median spatial smoothing."""
     arr = np.clip(image_tensor.reshape(28, 28), 0.0, 1.0)
     haze_ratio = float(np.mean((arr > 0.02) & (arr < 0.55)))
 
     if haze_ratio > SHIELD_HAZE_THRESHOLD:
-        # Remove distributed mid/low-intensity adversarial haze prior to median repair
         stripped = np.where(arr > 0.48, 1.0, 0.0)
     else:
         stripped = arr
@@ -201,13 +289,28 @@ def encode_gray_array_png(arr_0_to_1: np.ndarray) -> str:
     return f"data:image/png;base64,{b64}"
 
 
-def encode_perturbation_png(signed_grad: np.ndarray) -> str:
-    """Encode FGSM signed perturbation (-1/0/+1) into a high-contrast RGB heatmap PNG."""
-    grad_2d = signed_grad.reshape(28, 28)
-    rgb = np.zeros((28, 28, 3), dtype=np.uint8)
-    rgb[grad_2d > 0] = [58, 166, 255]
-    rgb[grad_2d < 0] = [231, 76, 60]
-    rgb[grad_2d == 0] = [20, 27, 45]
+def encode_perturbation_png(delta_tensor: np.ndarray) -> str:
+    """Encode actual pixel delta (attacked - clean) into a high-contrast RGB heatmap PNG."""
+    delta_2d = delta_tensor.reshape(28, 28)
+    max_abs = float(np.max(np.abs(delta_2d)))
+    norm = delta_2d / max_abs if max_abs > 1e-6 else delta_2d
+
+    rgb = np.full((28, 28, 3), fill_value=[20, 27, 45], dtype=np.uint8)
+    pos_mask = norm > 0.05
+    neg_mask = norm < -0.05
+
+    if np.any(pos_mask):
+        intensity = np.clip(norm[pos_mask], 0.25, 1.0)
+        rgb[pos_mask, 0] = (58 * intensity).astype(np.uint8)
+        rgb[pos_mask, 1] = (166 * intensity).astype(np.uint8)
+        rgb[pos_mask, 2] = (255 * intensity).astype(np.uint8)
+
+    if np.any(neg_mask):
+        intensity = np.clip(-norm[neg_mask], 0.25, 1.0)
+        rgb[neg_mask, 0] = (231 * intensity).astype(np.uint8)
+        rgb[neg_mask, 1] = (76 * intensity).astype(np.uint8)
+        rgb[neg_mask, 2] = (60 * intensity).astype(np.uint8)
+
     pil_img = Image.fromarray(rgb, mode="RGB")
     buffer = io.BytesIO()
     pil_img.save(buffer, format="PNG")
@@ -234,6 +337,48 @@ def parse_shield_flag(payload: dict) -> bool:
     if isinstance(raw, bool):
         return raw
     raise ValueError("'shield' must be a boolean.")
+
+
+def parse_attack_params(payload: dict) -> tuple[str, float, int, int | None]:
+    """Validate and parse multi-villain attack parameters from JSON payload."""
+    raw_type = payload.get("attack_type", "fgsm")
+    if not isinstance(raw_type, str) or raw_type.strip().lower() not in VILLAIN_REGISTRY:
+        supported = ", ".join(VILLAIN_REGISTRY.keys())
+        raise ValueError(f"'attack_type' must be one of: {supported}.")
+    attack_type = raw_type.strip().lower()
+
+    raw_epsilon = payload.get("epsilon", 0.35)
+    if isinstance(raw_epsilon, bool):
+        raise ValueError("Invalid 'epsilon' parameter.")
+    try:
+        epsilon = float(raw_epsilon)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid 'epsilon' parameter.") from exc
+    if not (0.01 <= epsilon <= 0.50):
+        raise ValueError("'epsilon' must be between 0.01 and 0.50.")
+
+    default_steps = VILLAIN_REGISTRY[attack_type]["default_steps"]
+    if attack_type in ("pgd", "targeted"):
+        raw_steps = payload.get("steps", default_steps)
+        if isinstance(raw_steps, bool) or not isinstance(raw_steps, int):
+            raise ValueError("'steps' must be an integer between 2 and 20.")
+        if not (2 <= raw_steps <= 20):
+            raise ValueError("'steps' must be between 2 and 20.")
+        steps = raw_steps
+    else:
+        steps = default_steps
+
+    target_digit = None
+    if attack_type == "targeted":
+        raw_target = payload.get("target_digit")
+        if raw_target is not None:
+            if isinstance(raw_target, bool) or not isinstance(raw_target, int):
+                raise ValueError("'target_digit' must be an integer between 0 and 9.")
+            if not (0 <= raw_target <= 9):
+                raise ValueError("'target_digit' must be between 0 and 9.")
+            target_digit = raw_target
+
+    return attack_type, epsilon, steps, target_digit
 
 
 @app.after_request
@@ -329,17 +474,9 @@ def attack():
     try:
         gray_image = decode_canvas_image(payload)
         shield_enabled = parse_shield_flag(payload)
+        attack_type, epsilon, steps, target_digit = parse_attack_params(payload)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-
-    raw_epsilon = payload.get("epsilon", 0.35)
-    try:
-        epsilon = float(raw_epsilon)
-    except (TypeError, ValueError):
-        return jsonify({"error": "Invalid 'epsilon' parameter."}), 400
-
-    if not (0.01 <= epsilon <= 0.50):
-        return jsonify({"error": "'epsilon' must be between 0.01 and 0.50."}), 400
 
     image_tensor, _ = preprocess_canvas_image(gray_image)
 
@@ -347,17 +484,34 @@ def attack():
     predicted_label = int(np.argmax(original_prediction))
     original_confidence = float(np.max(original_prediction))
 
-    label_tensor = tf.convert_to_tensor([predicted_label])
-    perturbations = create_adversarial_pattern(image_tensor, label_tensor)
+    effective_target = (
+        target_digit
+        if attack_type != "targeted" or target_digit is not None
+        else (predicted_label + 1) % 10
+    )
 
-    attacked = image_tensor + (epsilon * perturbations)
-    attacked = tf.clip_by_value(attacked, 0.0, 1.0)
-    attacked_np = attacked.numpy()
+    attacked_np = execute_villain_attack(
+        image_tensor=image_tensor,
+        attack_type=attack_type,
+        original_label=predicted_label,
+        epsilon=epsilon,
+        steps=steps,
+        target_digit=effective_target,
+    )
+    delta_np = attacked_np - image_tensor
 
     attacked_prediction = model.predict(attacked_np, verbose=0)[0]
     attacked_digit = int(np.argmax(attacked_prediction))
     attacked_confidence = float(np.max(attacked_prediction))
     raw_attack_success = attacked_digit != predicted_label
+    target_hit = attack_type == "targeted" and attacked_digit == effective_target
+
+    villain_meta = VILLAIN_REGISTRY[attack_type]
+    villain_name = (
+        f"Mysterio (Target #{effective_target})"
+        if attack_type == "targeted"
+        else villain_meta["villain"]
+    )
 
     shield_info = {"enabled": False}
     attack_success = raw_attack_success
@@ -370,19 +524,19 @@ def attack():
 
         if recovered:
             defense_verdict = (
-                f"Web Shield neutralized Goblin perturbation and restored Digit {predicted_label}."
+                f"Web Shield neutralized {villain_name} perturbation and restored Digit {predicted_label}."
             )
             threat = "🛡 SHIELDED — ATTACK NEUTRALIZED"
             threat_score = 20
         elif anomaly_caught:
             defense_verdict = (
-                "Web Shield detected adversarial divergence/haze and quarantined the input."
+                f"Web Shield detected {villain_name} divergence/haze and quarantined the input."
             )
             threat = "🛡 SHIELDED — THREAT QUARANTINED"
             threat_score = 35
         else:
-            defense_verdict = "Adversarial perturbation evaded Web Shield thresholds."
-            threat = "🚨 ATTACK SUCCESSFUL"
+            defense_verdict = f"{villain_name} perturbation evaded Web Shield thresholds."
+            threat = "🚨 TARGET HIJACKED" if target_hit else "🚨 ATTACK SUCCESSFUL"
             threat_score = min(100, max(75, int(round(attacked_confidence * 100.0))))
 
         attack_success = not neutralized
@@ -399,7 +553,10 @@ def attack():
             "defense_verdict": defense_verdict,
         }
     else:
-        if raw_attack_success:
+        if target_hit:
+            threat = f"🚨 TARGET HIJACKED (#{effective_target})"
+            threat_score = min(100, max(80, int(round(attacked_confidence * 100.0))))
+        elif raw_attack_success:
             threat = "🚨 ATTACK SUCCESSFUL"
             threat_score = min(100, max(75, int(round(attacked_confidence * 100.0))))
         elif attacked_confidence < 0.90:
@@ -412,6 +569,12 @@ def attack():
             )
 
     return jsonify({
+        "attack_type": attack_type,
+        "villain": villain_name,
+        "attack_method": villain_meta["method"],
+        "steps": steps,
+        "target_digit": effective_target if attack_type == "targeted" else None,
+        "target_hit": target_hit,
         "original_digit": predicted_label,
         "original_confidence": round(original_confidence * 100.0, 2),
         "attacked_digit": attacked_digit,
@@ -423,7 +586,7 @@ def attack():
         "raw_attack_success": raw_attack_success,
         "original_image": encode_gray_array_png(image_tensor),
         "attacked_image": encode_gray_array_png(attacked_np),
-        "perturbation_image": encode_perturbation_png(perturbations.numpy()),
+        "perturbation_image": encode_perturbation_png(delta_np),
         "shield": shield_info,
     })
 

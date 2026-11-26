@@ -10,7 +10,7 @@
           href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2359629E'/%3E%3Cpath d='M20 9L23 14L20 17L17 14ZM20 18L24 23L20 31L16 23Z' fill='%23fff'/%3E%3Cpath d='M17 15L10 10L7 15M23 15L30 10L33 15M16 19L8 18L6 24M24 19L32 18L34 24M16 23L10 28L9 34M24 23L30 28L31 34' stroke='%23fff' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
     <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css', v='12') }}">
+          href="{{ url_for('static', filename='style.css', v='13') }}">
 </head>
 
 <body>
@@ -180,6 +180,25 @@
                 <span class="panel-tag">RED / BLUE OPS</span>
             </div>
 
+            <div class="villain-selector" role="group" aria-label="Villain Attack Mode">
+                <button type="button" class="villain-chip active" data-villain="fgsm" onclick="selectVillain('fgsm')">
+                    <span class="chip-name">Green Goblin</span>
+                    <span class="chip-tag">FGSM</span>
+                </button>
+                <button type="button" class="villain-chip" data-villain="pgd" onclick="selectVillain('pgd')">
+                    <span class="chip-name">Doc Ock</span>
+                    <span class="chip-tag">PGD</span>
+                </button>
+                <button type="button" class="villain-chip" data-villain="targeted" onclick="selectVillain('targeted')">
+                    <span class="chip-name">Mysterio</span>
+                    <span class="chip-tag">TARGETED</span>
+                </button>
+                <button type="button" class="villain-chip" data-villain="noise" onclick="selectVillain('noise')">
+                    <span class="chip-name">Electro</span>
+                    <span class="chip-tag">NOISE</span>
+                </button>
+            </div>
+
             <div class="command-grid">
 
                 <button
@@ -209,7 +228,7 @@
                         </svg>
                         <span class="btn-label">Launch Goblin Attack</span>
                     </div>
-                    <span class="btn-sub">Simulate FGSM perturbation</span>
+                    <span class="btn-sub" id="attackButtonSub">Single-step FGSM perturbation</span>
                 </button>
 
                 <button
@@ -244,18 +263,50 @@
 
             </div>
 
-            <div class="epsilon-control">
-                <label for="epsilonSlider">
-                    Goblin Perturbation Intensity (FGSM ε):
-                    <strong id="epsilonValue">0.35</strong>
-                </label>
-                <input
-                    id="epsilonSlider"
-                    type="range"
-                    min="0.05"
-                    max="0.50"
-                    step="0.05"
-                    value="0.35">
+            <div class="attack-controls-bar">
+                <div class="epsilon-control">
+                    <label for="epsilonSlider">
+                        Perturbation Intensity (ε):
+                        <strong id="epsilonValue">0.35</strong>
+                    </label>
+                    <input
+                        id="epsilonSlider"
+                        type="range"
+                        min="0.05"
+                        max="0.50"
+                        step="0.05"
+                        value="0.35">
+                </div>
+
+                <div class="epsilon-control is-hidden" id="stepsControl">
+                    <label for="pgdStepsSlider">
+                        Iterative PGD Steps:
+                        <strong id="pgdStepsValue">10</strong>
+                    </label>
+                    <input
+                        id="pgdStepsSlider"
+                        type="range"
+                        min="4"
+                        max="20"
+                        step="2"
+                        value="10">
+                </div>
+
+                <div class="target-control is-hidden" id="targetDigitControl">
+                    <span class="target-label">Mysterio Target Digit:</span>
+                    <div class="target-digit-group" id="targetDigitGroup" role="group" aria-label="Target Digit">
+                        <button type="button" class="target-digit-btn" data-digit="0" onclick="selectTargetDigit(0)">0</button>
+                        <button type="button" class="target-digit-btn" data-digit="1" onclick="selectTargetDigit(1)">1</button>
+                        <button type="button" class="target-digit-btn" data-digit="2" onclick="selectTargetDigit(2)">2</button>
+                        <button type="button" class="target-digit-btn active" data-digit="3" onclick="selectTargetDigit(3)">3</button>
+                        <button type="button" class="target-digit-btn" data-digit="4" onclick="selectTargetDigit(4)">4</button>
+                        <button type="button" class="target-digit-btn" data-digit="5" onclick="selectTargetDigit(5)">5</button>
+                        <button type="button" class="target-digit-btn" data-digit="6" onclick="selectTargetDigit(6)">6</button>
+                        <button type="button" class="target-digit-btn" data-digit="7" onclick="selectTargetDigit(7)">7</button>
+                        <button type="button" class="target-digit-btn" data-digit="8" onclick="selectTargetDigit(8)">8</button>
+                        <button type="button" class="target-digit-btn" data-digit="9" onclick="selectTargetDigit(9)">9</button>
+                    </div>
+                </div>
             </div>
 
         </section>
@@ -285,6 +336,6 @@
 
     </div>
 
-    <script src="{{ url_for('static', filename='script.js', v='11') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v='13') }}"></script>
 </body>
 </html>
